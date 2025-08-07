@@ -18,18 +18,21 @@ public abstract class CodeResponseBodyAdvice implements ResponseBodyAdvice<Objec
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public Object beforeBodyWrite(@Nullable Object body, MethodParameter returnType, MediaType selectedContentType, Class<? extends HttpMessageConverter<?>> selectedConverterType, ServerHttpRequest request,
                                   ServerHttpResponse response) {
-        if ((request.getURI().getPath().startsWith("/api/") || request.getURI().getPath().startsWith("/public/")) &&
-                !(body instanceof CodeResponseEntity) && !(body instanceof InputStreamResource)) {
-            @SuppressWarnings("rawtypes")
-            CodeResponseEntity codeResponseEntity = new CodeResponseEntity();
+        String path = request.getURI().getPath();
+
+        if ((path.startsWith("/api/") || path.startsWith("/public/"))
+                && !(body instanceof CodeResponseEntity)
+                && !(body instanceof InputStreamResource)) {
+
+            CodeResponseEntity<Object> wrapper = new CodeResponseEntity<>();
             if (body != null && !(body instanceof String)) {
-                codeResponseEntity.setData(body);
+                wrapper.setData(body);
             }
-            return codeResponseEntity;
+            return wrapper;
         }
+
         return body;
     }
 }

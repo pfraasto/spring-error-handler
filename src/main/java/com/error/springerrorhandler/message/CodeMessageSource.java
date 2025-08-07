@@ -9,6 +9,7 @@ public class CodeMessageSource extends ReloadableResourceBundleMessageSource {
     private static final String SHORT_MESSAGE_SUFIX = ".short";
     private static final String DEFAULT_MESSAGE = "Error";
     private static final String DEFAULT_MESSAGE_SHORT = "ERROR";
+
     private final String defaultMessage;
     private final String defaultShortMessage;
 

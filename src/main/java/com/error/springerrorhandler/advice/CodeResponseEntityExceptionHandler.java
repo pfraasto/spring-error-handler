@@ -1,6 +1,5 @@
 package com.error.springerrorhandler.advice;
 
-
 import com.error.springerrorhandler.exceptions.CodeException;
 import com.error.springerrorhandler.exceptions.CustomHttpResponseException;
 import com.error.springerrorhandler.message.CodeMessageSource;
@@ -28,18 +27,19 @@ public abstract class CodeResponseEntityExceptionHandler extends ResponseEntityE
         this.codeMessageSource = codeMessageSource;
     }
 
-    @ExceptionHandler(value = {CodeException.class})
-    protected ResponseEntity<Object> handlerCodeCore(RuntimeException ex, WebRequest request) {
+    @ExceptionHandler(CodeException.class)
+    protected ResponseEntity<Object> handleCodeException(CodeException ex, WebRequest request) {
         return handleExceptionInternal(ex, null, new HttpHeaders(), HttpStatus.BAD_REQUEST, request);
     }
 
-    @ExceptionHandler(value = {Exception.class})
-    protected ResponseEntity<Object> handlerException(RuntimeException ex, WebRequest request) {
+    @ExceptionHandler(Exception.class)
+    protected ResponseEntity<Object> handleGeneralException(Exception ex, WebRequest request) {
         return handleExceptionInternal(ex, null, new HttpHeaders(), HttpStatus.INTERNAL_SERVER_ERROR, request);
     }
 
     @Override
-    protected ResponseEntity<Object> handleExceptionInternal(Exception ex, Object body, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+    protected ResponseEntity<Object> handleExceptionInternal(Exception ex, Object body, HttpHeaders headers,
+                                                             HttpStatusCode status, WebRequest request) {
         String errorCode = "default";
         String shortMessage = null;
         HttpStatusCode finalStatus = status;
@@ -52,46 +52,44 @@ public abstract class CodeResponseEntityExceptionHandler extends ResponseEntityE
             }
         }
 
-        if (ex instanceof CustomHttpResponseException mainException) {
-            HttpStatusCode httpStatus = mainException.getStatus() == null ? status : mainException.getStatus();
-            return new ResponseEntity<>(mainException.getPayload(), headers, httpStatus);
+        if (ex instanceof CustomHttpResponseException customEx) {
+            HttpStatusCode httpStatus = customEx.getStatus() != null ? customEx.getStatus() : status;
+            return new ResponseEntity<>(customEx.getPayload(), headers, httpStatus);
         }
 
-        CodeResponseEntity<Object> codeResponseEntity = new CodeResponseEntity<>();
         CodeMessageSource.MessageInfo message = codeMessageSource.getMessage(errorCode);
-        codeResponseEntity.setMessage(message.message());
-        if (shortMessage == null || !shortMessage.equals(ERROR_INESPERADO)) {
-            codeResponseEntity.setShortMessage(message.shortMessage());
-        } else {
-            codeResponseEntity.setShortMessage(shortMessage);
-        }
-        codeResponseEntity.setErrorCode(errorCode);
+        CodeResponseEntity<Object> response = new CodeResponseEntity<>();
+        response.setMessage(message.message());
+        response.setShortMessage(ERROR_INESPERADO.equals(shortMessage) ? shortMessage : message.shortMessage());
+        response.setErrorCode(errorCode);
 
-        if (ex instanceof MethodArgumentNotValidException argumentNotValidException) {
-            List<String> validationErrors = argumentNotValidException.getBindingResult()
+        if (ex instanceof MethodArgumentNotValidException validationEx) {
+            List<String> validationErrors = validationEx.getBindingResult()
                     .getFieldErrors()
                     .stream()
-                    .map(error -> String.format("%s", error.getDefaultMessage()))
+                    .map(error -> error.getDefaultMessage())
                     .toList();
-
-            codeResponseEntity.setData(validationErrors);
+            response.setData(validationErrors);
         }
 
-        log.error("code: [{}] message: [{}]", codeResponseEntity.getErrorCode(), codeResponseEntity.getMessage(), ex);
-        return new ResponseEntity<>(codeResponseEntity, headers, finalStatus);
+        log.error("code: [{}] message: [{}]", errorCode, response.getMessage(), ex);
+        return new ResponseEntity<>(response, headers, finalStatus);
     }
 
     @Override
-    protected ResponseEntity<Object> handleHttpMessageNotReadable(HttpMessageNotReadableException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+    protected ResponseEntity<Object> handleHttpMessageNotReadable(HttpMessageNotReadableException ex,
+                                                                  HttpHeaders headers,
+                                                                  HttpStatusCode status,
+                                                                  WebRequest request) {
         String errorCode = "default";
-
-        CodeResponseEntity<Object> codeResponseEntity = new CodeResponseEntity<>();
         CodeMessageSource.MessageInfo message = codeMessageSource.getMessage(errorCode);
-        codeResponseEntity.setMessage(message.message());
-        codeResponseEntity.setShortMessage(message.shortMessage());
-        codeResponseEntity.setErrorCode(errorCode);
 
-        return new ResponseEntity<>(codeResponseEntity, headers, status);
+        CodeResponseEntity<Object> response = new CodeResponseEntity<>();
+        response.setMessage(message.message());
+        response.setShortMessage(message.shortMessage());
+        response.setErrorCode(errorCode);
+
+        return new ResponseEntity<>(response, headers, status);
     }
 }
 
